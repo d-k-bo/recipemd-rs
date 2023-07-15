@@ -1,0 +1,65 @@
+Recipe {
+    title: "Water",
+    description: Some(
+        "A refreshing drink that should be consumed several times a day.",
+    ),
+    tags: Some(
+        [
+            "drink",
+            "non-alcoholic",
+            "H2O",
+        ],
+    ),
+    yields: Some(
+        [
+            Amount {
+                factor: Some(
+                    Integer(
+                        1,
+                    ),
+                ),
+                unit: Some(
+                    "glass",
+                ),
+            },
+        ],
+    ),
+    ingredients: [
+        IngredientGroup {
+            title: None,
+            ingredients: [
+                Ingredient {
+                    amount: Some(
+                        Amount {
+                            factor: Some(
+                                Integer(
+                                    1,
+                                ),
+                            ),
+                            unit: None,
+                        },
+                    ),
+                    name: "glass",
+                    link: None,
+                },
+                Ingredient {
+                    amount: Some(
+                        Amount {
+                            factor: Some(
+                                Integer(
+                                    1,
+                                ),
+                            ),
+                            unit: None,
+                        },
+                    ),
+                    name: "faucet",
+                    link: None,
+                },
+            ],
+        },
+    ],
+    instructions: Some(
+        "Turn on the faucet and fill the glass.",
+    ),
+}
