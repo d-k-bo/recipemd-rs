@@ -2,6 +2,12 @@
 name = "recipemd"
 version = "0.1.0"
 edition = "2021"
+authors = ["d-k-bo <d-k-bo@mailbox.org>"]
+description = "Parser for the RecipeMD format"
+repository = "https://github.com/d-k-bo/recipemd-rs"
+license = "LGPL-3.0-or-later"
+keywords = ["recipe", "recipes", "markdown", "cooking", "cooking-recipes"]
+categories = ["parser-implementations", "text-processing"]
 
 [features]
 default = ["diagnostics"]
