@@ -1,10 +1,9 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::LazyLock};
 
 use miette::IntoDiagnostic;
-use once_cell::sync::Lazy;
 use recipemd::Recipe;
 
-static TESTCASE_DIR: Lazy<PathBuf> = Lazy::new(|| {
+static TESTCASE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     let testcase_dir = PathBuf::from("./recipemd/testcases");
     assert!(
         testcase_dir.exists(),
