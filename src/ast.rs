@@ -17,7 +17,7 @@ pub(crate) struct Node<'s> {
     pub span: Range<usize>,
 }
 
-impl<'s> Node<'s> {
+impl Node<'_> {
     /// Recursively replaces all paragraphs its children
     pub(crate) fn flatten_paragraphs(&mut self) -> &mut Self {
         let children = match &mut self.kind {
@@ -75,7 +75,7 @@ pub(crate) enum NodeKind<'s> {
 pub(crate) trait NodeList {
     fn span(&self) -> Range<usize>;
 }
-impl<'s> NodeList for [Node<'s>] {
+impl NodeList for [Node<'_>] {
     /// Returns the calculated total span of multiple adjacent nodes.
     ///
     ///

@@ -30,7 +30,7 @@ impl<'s> RecipeParser<'s> {
     }
 }
 
-impl<'s> RecipeParser<'s> {
+impl RecipeParser<'_> {
     pub(crate) fn parse_recipe(&mut self) -> Result<Recipe> {
         let title = self.parse_title()?;
         let DescriptionTagsYields {
@@ -64,7 +64,7 @@ struct DescriptionTagsYields {
     yields: Option<Vec<Amount>>,
 }
 
-impl<'s> RecipeParser<'s> {
+impl RecipeParser<'_> {
     fn parse_title(&mut self) -> Result<String> {
         match self.parse_node() {
             Some(Node {
@@ -289,7 +289,7 @@ impl<'s> RecipeParser<'s> {
     }
 }
 
-impl<'s> RecipeParser<'s> {
+impl RecipeParser<'_> {
     fn parse_amount(&self, span: Range<usize>) -> Result<Amount> {
         let s = self.src[span].trim();
 
