@@ -98,7 +98,7 @@ impl<'s> RecipeParser<'s> {
 
         let node = match self.parser.next()? {
             (Event::Start(tag), Range { start, .. }) => match tag {
-                Tag::Heading(level, _, _) => {
+                Tag::Heading { level, .. } => {
                     let (children, end) = self.parse_child_nodes();
 
                     Node {
@@ -141,7 +141,10 @@ impl<'s> RecipeParser<'s> {
                         span: start..end,
                     }
                 }
-                Tag::Link(_, destination, _) => {
+                Tag::Link {
+                    dest_url: destination,
+                    ..
+                } => {
                     let (children, end) = self.parse_child_nodes();
 
                     Node {

@@ -21,7 +21,7 @@ impl FromStrParseExpect for str {
 
 pub(crate) fn escape_url(s: impl AsRef<str>) -> String {
     let mut buf = String::new();
-    pulldown_cmark::escape::escape_href(&mut buf, s.as_ref())
+    pulldown_cmark_escape::escape_href(&mut buf, s.as_ref())
         .expect("writing to a string never fails");
     buf
 }

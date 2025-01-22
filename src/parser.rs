@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub(crate) struct RecipeParser<'s> {
-    pub(crate) parser: Peekable<OffsetIter<'s, 's>>,
+    pub(crate) parser: Peekable<OffsetIter<'s>>,
     pub(crate) src: &'s str,
     pub(crate) pos: usize,
 }
