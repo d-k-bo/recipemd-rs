@@ -426,7 +426,7 @@ fn parse_ingredient_group<'s>(
     }
 
     Ok(IngredientGroup {
-        title: Some(title),
+        title,
         ingredients,
         ingredient_groups,
     })
