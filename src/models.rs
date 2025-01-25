@@ -25,7 +25,7 @@ pub struct Recipe {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(any(test, feature = "tests"), derive(PartialEq))]
 pub struct IngredientGroup {
-    pub title: Option<String>,
+    pub title: String,
     pub ingredients: Vec<Ingredient>,
     pub ingredient_groups: Vec<IngredientGroup>,
 }
