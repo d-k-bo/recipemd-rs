@@ -21,8 +21,8 @@ pub enum ErrorKind {
     MultipleDescriptionSections,
     #[error("ingredient is missing a name")]
     EmptyIngredient,
-    #[error("ingredient group is empty")]
-    EmptyIngredientGroup,
+    #[error("amount is missing a value")]
+    AmountWithoutValue,
 }
 
 /// Returned if a parsing a recipe was not successful.
