@@ -38,7 +38,8 @@ impl RecipeParser<'_> {
             tags,
             yields,
         } = self.parse_description_tags_yields()?;
-        let ingredients = self.parse_ingredients()?;
+
+        let (ingredients, ingredient_groups) = self.parse_all_ingredients()?;
 
         let instructions = (self.pos < self.src.len())
             .then(|| self.src[self.pos..].trim_newlines())
@@ -53,6 +54,7 @@ impl RecipeParser<'_> {
             tags,
             yields,
             ingredients,
+            ingredient_groups,
             instructions,
         })
     }
@@ -60,8 +62,8 @@ impl RecipeParser<'_> {
 
 struct DescriptionTagsYields {
     description: Option<String>,
-    tags: Option<Vec<String>>,
-    yields: Option<Vec<Amount>>,
+    tags: Vec<String>,
+    yields: Vec<Amount>,
 }
 
 impl RecipeParser<'_> {
@@ -123,11 +125,13 @@ impl RecipeParser<'_> {
                             if let DescriptionState::Started { end } = description_state {
                                 description_state = DescriptionState::Final { end }
                             }
+                            let src = &self.src[children.span()];
+
                             tags = Some(
-                                self.src[children.span()]
-                                    .split(',')
-                                    .map(str::trim)
-                                    .map(ToOwned::to_owned)
+                                // https://regex101.com/r/1MmcHz/1
+                                regex!(r"(?:[^,\d]*(?:\d+(?:,\d+)*)*[^,\d]*)*")
+                                    .find_iter(src)
+                                    .map(|m| m.as_str().trim().to_owned())
                                     .collect(),
                             );
                         }
@@ -146,11 +150,14 @@ impl RecipeParser<'_> {
                                 description_state = DescriptionState::Final { end }
                             }
                             let span = children.span();
+
                             yields = Some(
-                                regex!(r"\s*(?:\d+,\d+)?[^,]*")
+                                // https://regex101.com/r/1MmcHz/1
+                                regex!(r"(?:[^,\d]*(?:\d+(?:,\d+)*)*[^,\d]*)*")
                                     .find_iter(&self.src[span.clone()])
                                     .map(|m| {
-                                        self.parse_amount(
+                                        parse_amount(
+                                            self.src,
                                             span.start + m.start()..span.start + m.end(),
                                         )
                                     })
@@ -202,250 +209,225 @@ impl RecipeParser<'_> {
 
         Ok(DescriptionTagsYields {
             description,
-            tags,
-            yields,
+            tags: tags.unwrap_or_default(),
+            yields: yields.unwrap_or_default(),
         })
     }
 
-    fn parse_ingredients(&mut self) -> Result<Vec<IngredientGroup>> {
+    fn parse_all_ingredients(&mut self) -> Result<(Vec<Ingredient>, Vec<IngredientGroup>)> {
+        let mut ingredients = Vec::new();
         let mut ingredient_groups = Vec::new();
-        let mut current_group: Option<IngredientGroup> = None;
-        let mut current_group_span = None;
 
-        loop {
-            match self.parse_node() {
-                Some(Node {
-                    kind: NodeKind::Heading { children, .. },
-                    span,
-                }) => {
-                    let old_group = current_group.replace(IngredientGroup {
-                        title: Some(self.src[children.span()].to_owned()),
-                        ingredients: Vec::new(),
-                    });
-                    if old_group.is_some() {
-                        return Err(Error::new(
-                            ErrorKind::EmptyIngredientGroup,
-                            current_group_span,
-                        ));
-                    }
-                    current_group_span = Some(span);
-                }
-                Some(Node {
-                    kind: NodeKind::List(items),
-                    ..
-                }) => {
-                    let mut group = current_group.take().unwrap_or_else(|| IngredientGroup {
-                        title: None,
-                        ingredients: Vec::new(),
-                    });
+        let src = self.src;
+        let mut nodes = std::iter::from_fn(|| self.parse_node()).peekable();
 
-                    group.ingredients = items
-                        .into_iter()
-                        .map(|mut item| self.parse_ingredient(item.flatten_paragraphs()))
-                        .collect::<Result<Vec<Ingredient>>>()?;
-
-                    ingredient_groups.push(group);
+        while let Some(node) = nodes.next() {
+            match node.kind {
+                NodeKind::Heading { children, level } => {
+                    ingredient_groups.push(parse_ingredient_group(
+                        src,
+                        src[children.span()].to_owned(),
+                        level,
+                        &mut nodes,
+                    )?);
                 }
-                Some(Node {
-                    kind: NodeKind::HorizontalLine,
-                    ..
-                }) => {
-                    if current_group.take().is_some() {
-                        return Err(Error::new(
-                            ErrorKind::EmptyIngredientGroup,
-                            current_group_span,
-                        ));
+                NodeKind::List(items) => {
+                    ingredients.reserve(items.len());
+                    for item in items {
+                        ingredients.push(parse_ingredient(src, &item.flatten_paragraphs())?);
                     }
-                    if ingredient_groups.is_empty() {
-                        return Err(Error::new(
-                            ErrorKind::EmptyIngredientGroup,
-                            current_group_span,
-                        ));
-                    }
-
-                    return Ok(ingredient_groups);
                 }
-                None => {
-                    if current_group.take().is_some() {
-                        return Err(Error::new(
-                            ErrorKind::EmptyIngredientGroup,
-                            current_group_span,
-                        ));
-                    }
-                    if ingredient_groups.is_empty() {
-                        return Err(Error::new(
-                            ErrorKind::EmptyIngredientGroup,
-                            current_group_span,
-                        ));
-                    }
-
-                    return Ok(ingredient_groups);
-                }
-                Some(Node { kind: _, span }) => {
-                    return Err(Error::new(ErrorKind::ExpectedHorizontalLine, span))
-                }
+                NodeKind::HorizontalLine => break,
+                _ => return Err(Error::new(ErrorKind::ExpectedHorizontalLine, node.span)),
             }
         }
+
+        Ok((ingredients, ingredient_groups))
     }
 }
 
-impl RecipeParser<'_> {
-    fn parse_amount(&self, span: Range<usize>) -> Result<Amount> {
-        let s = self.src[span].trim();
+fn parse_amount(src: &str, span: Range<usize>) -> Result<Amount> {
+    let s = src[span.clone()].trim();
 
-        // proper (1/2) or improper fraction (1 1/2)
-        if let Some(m) = regex!(
-            r"^(?:(?P<whole>\d+)\s+)?(?P<numerator>\d+)\s*/\s*(?P<denominator>\d+)\s*(?P<unit>.+)?$"
-        )
-        .captures(s)
-        {
-            let whole: u16 = m
-                .name("whole")
-                .map(|m| m.as_str().parse_expect())
-                .unwrap_or(0);
-            let numerator: u16 = m["numerator"].parse_expect();
-            let denominator: u16 = m["denominator"].parse_expect();
-            let unit = m.name("unit").map(|m| m.as_str().to_owned());
+    // proper (1/2) or improper fraction (1 1/2)
+    if let Some(m) = regex!(
+        r"^(?:(?P<whole>\d+)\s+)?(?P<numerator>\d+)\s*/\s*(?P<denominator>\d+)\s*(?P<unit>.+)?$"
+    )
+    .captures(s)
+    {
+        let whole: u16 = m
+            .name("whole")
+            .map(|m| m.as_str().parse_expect())
+            .unwrap_or(0);
+        let numerator: u16 = m["numerator"].parse_expect();
+        let denominator: u16 = m["denominator"].parse_expect();
+        let unit = m.name("unit").map(|m| m.as_str().to_owned());
 
-            return Ok(Amount {
-                factor: Some(Factor::Fraction(
-                    whole * denominator + numerator,
-                    denominator,
-                )),
-                unit,
-            });
-        }
-
-        // proper (½) or improper fraction with unicode vulgar fraction (1 ½)
-        if let Some(m) = regex!(
-            r"^(?:(?P<whole>\d+)\s+)?(?P<symbol>[\u00BC-\u00BE\u2150-\u215E])\s*(?P<unit>.+)?$"
-        )
-        .captures(s)
-        {
-            let whole: u16 = m
-                .name("whole")
-                .map(|m| m.as_str().parse_expect())
-                .unwrap_or(0);
-            let (numerator, denominator) = decode_unicode_fraction(&m["symbol"]);
-            let unit = m.name("unit").map(|m| m.as_str().to_owned());
-
-            return Ok(Amount {
-                factor: Some(Factor::Fraction(
-                    whole * denominator + numerator,
-                    denominator,
-                )),
-                unit,
-            });
-        }
-
-        // decimal (1.5 or 1,5)
-        if let Some(m) = regex!(r"^(\d*)[.,](\d+)\s*(?P<unit>.+)?$").captures(s) {
-            let value: f32 = format!("{}.{}", &m[1], &m[2]).parse_expect();
-            let unit = m.name("unit").map(|m| m.as_str().to_owned());
-
-            return Ok(Amount {
-                factor: Some(Factor::Float(value)),
-                unit,
-            });
-        }
-
-        // integer (2)
-        if let Some(m) = regex!(r"^(\d+)\s*(?P<unit>.+)?$").captures(s) {
-            let value: u32 = m[1].parse_expect();
-            let unit = m.name("unit").map(|m| m.as_str().to_owned());
-
-            return Ok(Amount {
-                factor: Some(Factor::Integer(value)),
-                unit,
-            });
-        }
-
-        Ok(Amount {
-            factor: None,
-            unit: Some(s.to_owned()),
-        })
+        return Ok(Amount {
+            factor: Factor::Fraction(whole * denominator + numerator, denominator),
+            unit,
+        });
     }
 
-    fn parse_ingredient(&mut self, node: &Node) -> Result<Ingredient> {
-        let children = match &node.kind {
-            NodeKind::ListItem(children) | NodeKind::Paragraph(children) => children,
-            _ => panic!("ingredient must be a list item or paragraph"),
-        };
+    // proper (½) or improper fraction with unicode vulgar fraction (1 ½)
+    if let Some(m) =
+        regex!(r"^(?:(?P<whole>\d+)\s+)?(?P<symbol>[\u00BC-\u00BE\u2150-\u215E])\s*(?P<unit>.+)?$")
+            .captures(s)
+    {
+        let whole: u16 = m
+            .name("whole")
+            .map(|m| m.as_str().parse_expect())
+            .unwrap_or(0);
+        let (numerator, denominator) = decode_unicode_fraction(&m["symbol"]);
+        let unit = m.name("unit").map(|m| m.as_str().to_owned());
 
-        match &children[..] {
-            []
-            | [Node {
-                kind: NodeKind::Emphasis(_),
-                ..
-            }] => Err(Error::new(ErrorKind::EmptyIngredient, node.span.clone())),
-            [paragraph @ Node {
-                kind: NodeKind::Paragraph(_),
-                ..
-            }] => self.parse_ingredient(paragraph),
-            [Node {
-                kind: NodeKind::Emphasis(amount_children),
-                ..
-            }, Node {
-                kind:
-                    NodeKind::Link {
-                        destination,
-                        children: link_children,
-                    },
-                span,
-            }]
-            | [Node {
-                kind: NodeKind::Emphasis(amount_children),
-                ..
-            }, Node {
-                kind: NodeKind::Text(CowStr::Borrowed(" ")),
-                ..
-            }, Node {
-                kind:
-                    NodeKind::Link {
-                        destination,
-                        children: link_children,
-                    },
-                span,
-            }] => {
-                if link_children.is_empty() {
-                    return Err(Error::new(ErrorKind::EmptyIngredient, span.clone()));
-                }
+        return Ok(Amount {
+            factor: Factor::Fraction(whole * denominator + numerator, denominator),
+            unit,
+        });
+    }
 
-                let amount = Some(self.parse_amount(amount_children.span())?);
-                Ok(Ingredient {
-                    amount,
-                    name: self.src[link_children.span()].trim().to_owned(),
-                    link: Some(escape_url(destination)),
-                })
+    // decimal (1.5 or 1,5)
+    if let Some(m) = regex!(r"^(\d*)[.,](\d+)\s*(?P<unit>.+)?$").captures(s) {
+        let value: f32 = format!("{}.{}", &m[1], &m[2]).parse_expect();
+        let unit = m.name("unit").map(|m| m.as_str().to_owned());
+
+        return Ok(Amount {
+            factor: Factor::Float(value),
+            unit,
+        });
+    }
+
+    // integer (2)
+    if let Some(m) = regex!(r"^(\d+)\s*(?P<unit>.+)?$").captures(s) {
+        let value: u32 = m[1].parse_expect();
+        let unit = m.name("unit").map(|m| m.as_str().to_owned());
+
+        return Ok(Amount {
+            factor: Factor::Integer(value),
+            unit,
+        });
+    }
+
+    Err(Error::new(ErrorKind::AmountWithoutValue, span))
+}
+
+fn parse_ingredient(src: &str, node: &Node) -> Result<Ingredient> {
+    let children = match &node.kind {
+        NodeKind::ListItem(children) | NodeKind::Paragraph(children) => children,
+        _ => panic!("ingredient must be a list item or paragraph"),
+    };
+
+    match &children[..] {
+        []
+        | [Node {
+            kind: NodeKind::Emphasis(_),
+            ..
+        }] => Err(Error::new(ErrorKind::EmptyIngredient, node.span.clone())),
+        [paragraph @ Node {
+            kind: NodeKind::Paragraph(_),
+            ..
+        }] => parse_ingredient(src, paragraph),
+        [Node {
+            kind: NodeKind::Emphasis(amount_children),
+            ..
+        }, Node {
+            kind:
+                NodeKind::Link {
+                    destination,
+                    children: link_children,
+                },
+            span,
+        }]
+        | [Node {
+            kind: NodeKind::Emphasis(amount_children),
+            ..
+        }, Node {
+            kind: NodeKind::Text(CowStr::Borrowed(" ")),
+            ..
+        }, Node {
+            kind:
+                NodeKind::Link {
+                    destination,
+                    children: link_children,
+                },
+            span,
+        }] => {
+            if link_children.is_empty() {
+                return Err(Error::new(ErrorKind::EmptyIngredient, span.clone()));
             }
-            [Node {
-                kind: NodeKind::Emphasis(amount_children),
-                ..
-            }, children @ ..] => {
-                let amount = Some(self.parse_amount(amount_children.span())?);
-                Ok(Ingredient {
-                    amount,
-                    name: self.src[children.span()].trim().to_string(),
-                    link: None,
-                })
-            }
-            [Node {
-                kind:
-                    NodeKind::Link {
-                        destination,
-                        children,
-                    },
-                ..
-            }] => Ok(Ingredient {
-                amount: None,
-                name: self.src[children.span()].trim().to_owned(),
+
+            let amount = Some(parse_amount(src, amount_children.span())?);
+            Ok(Ingredient {
+                amount,
+                name: src[link_children.span()].trim().to_owned(),
                 link: Some(escape_url(destination)),
-            }),
-            children => Ok(Ingredient {
-                amount: None,
-                name: self.src[children.span()].trim().to_owned(),
+            })
+        }
+        [Node {
+            kind: NodeKind::Emphasis(amount_children),
+            ..
+        }, children @ ..] => {
+            let amount = Some(parse_amount(src, amount_children.span())?);
+            Ok(Ingredient {
+                amount,
+                name: src[children.span()].trim().to_string(),
                 link: None,
-            }),
+            })
+        }
+        [Node {
+            kind:
+                NodeKind::Link {
+                    destination,
+                    children,
+                },
+            ..
+        }] => Ok(Ingredient {
+            amount: None,
+            name: src[children.span()].trim().to_owned(),
+            link: Some(escape_url(destination)),
+        }),
+        children => Ok(Ingredient {
+            amount: None,
+            name: src[children.span()].trim().to_owned(),
+            link: None,
+        }),
+    }
+}
+fn parse_ingredient_group<'s>(
+    src: &str,
+    title: String,
+    level: HeadingLevel,
+    nodes: &mut Peekable<impl Iterator<Item = Node<'s>>>,
+) -> Result<IngredientGroup> {
+    let mut ingredients = Vec::new();
+    let mut ingredient_groups = Vec::new();
+
+    while let Some(node) = nodes.peek() {
+        match &node.kind {
+            NodeKind::Heading {
+                level: child_level,
+                children,
+            } if child_level > &level => {
+                let title = src[children.span()].to_owned();
+                let child_level = *child_level;
+                let _ = nodes.next();
+                ingredient_groups.push(parse_ingredient_group(src, title, child_level, nodes)?);
+            }
+            NodeKind::List(items) => {
+                ingredients.reserve(items.len());
+                for item in items {
+                    ingredients.push(parse_ingredient(src, &item.flatten_paragraphs())?);
+                }
+                let _ = nodes.next();
+            }
+            _ => break,
         }
     }
+
+    Ok(IngredientGroup {
+        title: Some(title),
+        ingredients,
+        ingredient_groups,
+    })
 }

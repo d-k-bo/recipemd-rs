@@ -10,7 +10,7 @@ use pulldown_cmark::{CowStr, Event, HeadingLevel, Tag};
 use crate::parser::RecipeParser;
 
 /// Represents a node in the abstract syntax tree.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) struct Node<'s> {
     pub kind: NodeKind<'s>,
@@ -19,8 +19,9 @@ pub(crate) struct Node<'s> {
 
 impl Node<'_> {
     /// Recursively replaces all paragraphs its children
-    pub(crate) fn flatten_paragraphs(&mut self) -> &mut Self {
-        let children = match &mut self.kind {
+    pub(crate) fn flatten_paragraphs(&self) -> Self {
+        let mut flattened = self.clone();
+        let children = match &mut flattened.kind {
             NodeKind::Heading { children, .. }
             | NodeKind::Paragraph(children)
             | NodeKind::Emphasis(children)
@@ -28,10 +29,10 @@ impl Node<'_> {
             | NodeKind::List(children)
             | NodeKind::ListItem(children)
             | NodeKind::Link { children, .. } => children,
-            _ => return self,
+            _ => return flattened,
         };
 
-        for mut child in std::mem::take(children) {
+        for child in std::mem::take(children) {
             match child.kind {
                 NodeKind::Paragraph(mut p_children) => {
                     for p_child in p_children.iter_mut() {
@@ -46,12 +47,12 @@ impl Node<'_> {
             }
         }
 
-        self
+        flattened
     }
 }
 
 /// The simplified type of node if it is relevant for parsing recipe.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) enum NodeKind<'s> {
     Heading {

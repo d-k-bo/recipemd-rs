@@ -4,7 +4,7 @@ use miette::IntoDiagnostic;
 use recipemd::Recipe;
 
 static TESTCASE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
-    let testcase_dir = PathBuf::from("./recipemd/testcases");
+    let testcase_dir = PathBuf::from("./recipemd/testcases/cases");
     assert!(
         testcase_dir.exists(),
         "repo must be cloned with --recurse-submodules"
@@ -30,10 +30,11 @@ mod valid {
     }
 
     fn valid(name: &str) -> miette::Result<()> {
-        let md =
-            std::fs::read_to_string(TESTCASE_DIR.join(format!("{name}.md"))).into_diagnostic()?;
-        let json =
-            std::fs::read_to_string(TESTCASE_DIR.join(format!("{name}.json"))).into_diagnostic()?;
+        let md_path = TESTCASE_DIR.join(format!("{name}.md"));
+        let json_path = TESTCASE_DIR.join(format!("{name}.json"));
+
+        let md = std::fs::read_to_string(&md_path).into_diagnostic()?;
+        let json = std::fs::read_to_string(&json_path).into_diagnostic()?;
 
         let ours = Recipe::parse(&md)?;
         let reference: Recipe = serde_json::from_str(&json).into_diagnostic()?;
@@ -46,10 +47,7 @@ mod valid {
     testcase!(commonmark_fenced_code_blocks);
     testcase!(commonmark_reference_images);
     testcase!(commonmark_reference_links);
-    testcase!(
-        ingredients_groups,
-        ignore = "not spec compliant: nested ingredient groups"
-    );
+    testcase!(ingredients_groups);
     testcase!(
         ingredients_links,
         ignore = "unspecified: differences in parsing whitespace"
@@ -61,40 +59,16 @@ mod valid {
     testcase!(ingredients_numbered);
     testcase!(ingredients_sublist);
     testcase!(ingredients);
-    testcase!(
-        instructions,
-        ignore = "not spec compliant: empty ingredient group"
-    );
-    testcase!(
-        recipe,
-        ignore = "not spec compliant: nested ingredient groups"
-    );
-    testcase!(
-        tags_no_partial,
-        ignore = "not spec compliant: empty ingredient group"
-    );
-    testcase!(
-        tags_splitting,
-        ignore = "not spec compliant: empty ingredient group"
-    );
-    testcase!(
-        tags_yields,
-        ignore = "not spec compliant: empty ingredient group"
-    );
-    testcase!(tags, ignore = "not spec compliant: empty ingredient group");
-    testcase!(
-        title_setext,
-        ignore = "not spec compliant: empty ingredient group"
-    );
-    testcase!(title, ignore = "not spec compliant: empty ingredient group");
-    testcase!(
-        yields_tags,
-        ignore = "not spec compliant: empty ingredient group"
-    );
-    testcase!(
-        yields,
-        ignore = "not spec compliant: empty ingredient group"
-    );
+    testcase!(instructions);
+    testcase!(recipe);
+    testcase!(tags_no_partial);
+    testcase!(tags_splitting);
+    testcase!(tags_yields);
+    testcase!(tags);
+    testcase!(title_setext);
+    testcase!(title);
+    testcase!(yields_tags);
+    testcase!(yields);
 }
 
 mod invalid {

@@ -9,101 +9,15 @@ use serde::{Deserialize, Serialize};
 /// See the [top-level documentation](crate) for details.
 #[derive(Clone, Debug)]
 #[cfg_attr(any(test, feature = "tests"), derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Recipe {
     pub title: String,
     pub description: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub yields: Option<Vec<Amount>>,
-    pub ingredients: Vec<IngredientGroup>,
+    pub tags: Vec<String>,
+    pub yields: Vec<Amount>,
+    pub ingredients: Vec<Ingredient>,
+    pub ingredient_groups: Vec<IngredientGroup>,
     pub instructions: Option<String>,
-}
-
-/// Proxy type for (de)serializing to/from a format used by the reference implementation
-// TODO: Fix confilct between specification and reference implementation
-#[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize)]
-struct SerializedRecipe {
-    title: String,
-    description: Option<String>,
-    tags: Vec<String>,
-    yields: Vec<Amount>,
-    ingredients: Vec<Ingredient>,
-    ingredient_groups: Vec<IngredientGroup>,
-    instructions: Option<String>,
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Recipe {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let Recipe {
-            title,
-            description,
-            tags,
-            yields,
-            ingredients: mut ingredient_groups,
-            instructions,
-        } = self.clone();
-
-        let ingredients = match ingredient_groups.first() {
-            Some(first_group) if first_group.title.is_none() => {
-                ingredient_groups.remove(0).ingredients
-            }
-            _ => Vec::new(),
-        };
-        SerializedRecipe {
-            title,
-            description,
-            tags: tags.unwrap_or_default(),
-            yields: yields.unwrap_or_default(),
-            ingredients,
-            ingredient_groups,
-            instructions,
-        }
-        .serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Recipe {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let SerializedRecipe {
-            title,
-            description,
-            tags,
-            yields,
-            ingredients,
-            mut ingredient_groups,
-            instructions,
-        } = SerializedRecipe::deserialize(deserializer)?;
-
-        let tags = if tags.is_empty() { None } else { Some(tags) };
-        let yields = if yields.is_empty() {
-            None
-        } else {
-            Some(yields)
-        };
-        if !ingredients.is_empty() {
-            ingredient_groups.push(IngredientGroup {
-                title: None,
-                ingredients,
-            })
-        }
-
-        Ok(Recipe {
-            title,
-            description,
-            tags,
-            yields,
-            ingredients: ingredient_groups,
-            instructions,
-        })
-    }
 }
 
 /// An [IngredientGroup](https://recipemd.org/specification.html#ingredient-group).
@@ -113,6 +27,7 @@ impl<'de> Deserialize<'de> for Recipe {
 pub struct IngredientGroup {
     pub title: Option<String>,
     pub ingredients: Vec<Ingredient>,
+    pub ingredient_groups: Vec<IngredientGroup>,
 }
 
 /// An [Ingredient](https://recipemd.org/specification.html#ingredient).
@@ -130,8 +45,7 @@ pub struct Ingredient {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(any(test, feature = "tests"), derive(PartialEq))]
 pub struct Amount {
-    pub factor: Option<Factor>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub factor: Factor,
     pub unit: Option<String>,
 }
 
