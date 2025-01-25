@@ -3,62 +3,48 @@ Recipe {
     description: Some(
         "A refreshing drink that should be consumed several times a day.",
     ),
-    tags: Some(
-        [
-            "drink",
-            "non-alcoholic",
-            "H2O",
-        ],
-    ),
-    yields: Some(
-        [
-            Amount {
-                factor: Some(
-                    Integer(
-                        1,
-                    ),
-                ),
-                unit: Some(
-                    "glass",
-                ),
-            },
-        ],
-    ),
-    ingredients: [
-        IngredientGroup {
-            title: None,
-            ingredients: [
-                Ingredient {
-                    amount: Some(
-                        Amount {
-                            factor: Some(
-                                Integer(
-                                    1,
-                                ),
-                            ),
-                            unit: None,
-                        },
-                    ),
-                    name: "glass",
-                    link: None,
-                },
-                Ingredient {
-                    amount: Some(
-                        Amount {
-                            factor: Some(
-                                Integer(
-                                    1,
-                                ),
-                            ),
-                            unit: None,
-                        },
-                    ),
-                    name: "faucet",
-                    link: None,
-                },
-            ],
+    tags: [
+        "drink",
+        "non-alcoholic",
+        "H2O",
+    ],
+    yields: [
+        Amount {
+            factor: Integer(
+                1,
+            ),
+            unit: Some(
+                "glass",
+            ),
         },
     ],
+    ingredients: [
+        Ingredient {
+            amount: Some(
+                Amount {
+                    factor: Integer(
+                        1,
+                    ),
+                    unit: None,
+                },
+            ),
+            name: "glass",
+            link: None,
+        },
+        Ingredient {
+            amount: Some(
+                Amount {
+                    factor: Integer(
+                        1,
+                    ),
+                    unit: None,
+                },
+            ),
+            name: "faucet",
+            link: None,
+        },
+    ],
+    ingredient_groups: [],
     instructions: Some(
         "Turn on the faucet and fill the glass.",
     ),

@@ -4,10 +4,6 @@
 //! A library for parsing recipes written in markdown that follows the
 //! [RecipeMD](https://recipemd.org/) specification.
 //!
-//! This implementation tries to be as close as possible to the specification.
-//! This results in some differences to the reference implementation written in Python.
-//! See the [related issue](https://github.com/tstehr/RecipeMD/issues/52) for details.
-//!
 //! # Example
 //!
 //! ```
