@@ -1,4 +1,4 @@
 [submodule "recipemd"]
 	path = recipemd
 	url = https://github.com/RecipeMD/RecipeMD.git
-	branch = spec-fixes
+	branch = "master"
