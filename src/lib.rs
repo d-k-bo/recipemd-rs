@@ -42,6 +42,8 @@
 //!
 //! </details>
 
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 mod ast;
 mod error;
 mod models;
