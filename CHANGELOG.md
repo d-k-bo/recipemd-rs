@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-02-21
+
 ### Changed
 
 - Adapt to changes in the [RecipeMD specification version 2.4.0](https://recipemd.org/specification.html#version-2-4-0-2024-02-14). `recipemd-rs` now follows the reference implementation more closely
@@ -24,5 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2023-07-31
 
-[Unreleased]: https://github.com/d-k-bo/recipemd-rs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/d-k-bo/recipemd-rs/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/d-k-bo/recipemd-rs/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/d-k-bo/recipemd-rs/releases/tag/v0.1.0
