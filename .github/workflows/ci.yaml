@@ -1,26 +1,29 @@
-on: [push, pull_request]
-
 name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
 
 jobs:
   fmt:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --all -- --check
 
   clippy:
     name: cargo clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: dtolnay/rust-toolchain@stable
       - run: cargo clippy --all-features
       - run: cargo clippy --no-default-features
 
@@ -28,8 +31,7 @@ jobs:
     name: cargo test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --all-features
