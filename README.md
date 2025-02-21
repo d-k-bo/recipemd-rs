@@ -1,5 +1,10 @@
 # recipemd-rs
 
+[![Build Status](https://github.com/d-k-bo/recipemd-rs/workflows/CI/badge.svg)](https://github.com/d-k-bo/recipemd-rs/actions?query=workflow%3ACI)
+[![Crates.io](https://img.shields.io/crates/v/recipemd)](https://lib.rs/crates/recipemd)
+[![Documentation](https://img.shields.io/docsrs/recipemd)](https://docs.rs/recipemd)
+[![License: LGPL-3.0-or-later](https://img.shields.io/crates/l/recipemd)](LICENSE)
+
 <!-- cargo-rdme start -->
 
 A library for parsing recipes written in markdown that follows the
